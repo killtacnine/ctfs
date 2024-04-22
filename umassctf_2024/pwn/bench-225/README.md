@@ -42,7 +42,7 @@ The `motivation` function just lets us enter those 1000 bytes previously mention
 
 Using `telescope` in `gef` after we break point at the `fgets` call, we can start using some format bugs to leak data. If we enter `%9$p` we get the cookie!
 
-![cookieez](./media/leak.png)
+![cookieez](./media/cookie.png)
 
 ## ROP Funz 
 
