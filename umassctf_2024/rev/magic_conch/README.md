@@ -24,7 +24,7 @@ Connecting to the listening service requests some data and returns hex-like data
 
 ## Weird Binary 
 
-What's immediately interesting about this binary is that we can't find the strings or the commands we would expect for a challenge like this. How can this be? How can I binary listen on a port without any socket commands?
+What's immediately interesting about this binary is that we can't find the strings or the commands we would expect for a challenge like this. How can this be? How can a binary listen on a port without any socket commands?
 
 I cleaned up the binary to be fairly neat and tidy, which results in this pretty easy-to-follow code:
 
