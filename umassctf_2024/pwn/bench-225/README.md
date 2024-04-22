@@ -40,11 +40,13 @@ Since canaries are enabled, we probably want the stack cookie, because if we get
 
 The `motivation` function just lets us enter those 1000 bytes previously mentioned, but we don't want to stack overflow while gathering our leaks!
 
-Using `telescope` in `gef` after we break point at the `fgets` call, we can start using some format bugs to leak data. If we enter '%9$p' we get the cookie!
+Using `telescope` in `gef` after we break point at the `fgets` call, we can start using some format bugs to leak data. If we enter `%9$p` we get the cookie!
 
 ## ROP Funz 
 
-Since we can use ROP, let's check if there are any useful functions or one-gadgets we might've missed... No one-gadgets, but there is a function that is not called from anywhere named `the_boats`. Decompiling this reveals a ton of useful ROP gadgets: 
+Since we can use ROP now, let's check if there are any useful functions or one-gadgets we might've missed...
+
+No one-gadgets, but there is a function that is not called from anywhere named `the_boats`. Decompiling this reveals a ton of useful ROP gadgets: 
 
 ![gadgets](./media/gadgets.png)
 
@@ -52,10 +54,12 @@ So, if we can get the address of `the_boats`, we can use these gadgets... but, h
 
 So, let's calulate the offset of `main` and `the_boats` since we have a leak of the base address of `main` (because PIE is enabled, these values are just from my run and won't match yours):
 
-Example `main`:      0x0000560f8995d35c
-Example `the_boats`: 0x0000560f8995d317
-
-0x0000560f8995d317 - 0x0000560f8995d35c = 69. 
+```
+    Example `main`:      0x0000560f8995d35c
+    Example `the_boats`: 0x0000560f8995d317
+    
+    0x0000560f8995d317 - 0x0000560f8995d35c = 69. 
+```
 
 So, `the_boats` is 69 bytes *behind* `main`. We can grab the offsets of the gadgets as well.
 
@@ -80,7 +84,7 @@ So, `the_boats` is 69 bytes *behind* `main`. We can grab the offsets of the gadg
 
 The very next byte is the start of `main`. 
 
-So, we have the cookie and we have a bunch of ROP gadgets. We also vbuffers for stdin/stdout/stderr on the remote connection, which means if we get a shell *locally* we will see it *remotely* (which doesn't usually work). 
+So, we have the cookie and we have a bunch of ROP gadgets. We also have vbuffers for stdin/stdout/stderr on the remote connection, which means if we get a shell *locally* we will see it *remotely* (which doesn't usually work). 
 
 So, the call we want to make is, in its most basic form, `execve("/bin/sh", NULL, NULL)`. We can do this in a ROP chain if we use the `syscall` ROP gadget after setting the following registers to the following values:
 
@@ -126,7 +130,7 @@ int execve(const char *path, char *const argv[], char *const envp[]);
 
 Now, I am *100% certain* the last two arguments of this call *can* be `NULL`. But, the mistake I made was... *drumroll*... I set `rdi` to the character bytes of `/bin/sh\0` instead of a *pointer* to those bytes. 
 
-Well, how do we `rdi` a pointer? Since we can `NULL` terminate `/bin/sh`, we really just need an the address where the start of the string is written. 
+Well, how do we set `rdi` to a pointer to "/bin/sh"? Since we can `NULL` terminate `/bin/sh`, we really just need the address where the start of the string is written. 
 
 Let's go back to our leaks... This is a stack based buffer overflow, so if we can get the *address of the stack* we can point to data we control! Cutting out some of the trial and error here, just know that `%19$p` leaks an address on the stack. This address is consisently 328 bytes *ahead* of the *start* of our ROP chain, so if we know how many instructions we *need* we can just tack as much data at the end of our ROP chain as we want to point to after calculating the offset from the start of our overflow.
 
