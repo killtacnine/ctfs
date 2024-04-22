@@ -62,14 +62,14 @@ If we run the challenge, we see the following:
  > What action do you want to take?
 ```
 
-I won't even show any decompilation in this writeup because the functions behind these menu items aren't playing any tricks on us. They really are just making allocations with `malloc`, resizing allocations with `realloc`, writing data to allocated areas, and then calling the `win` function if the a heap block contains the string s`Ez W` (called with option "4" of "Retrieve Flag").
+I won't even show any decompilation in this writeup because the functions behind these menu items aren't playing any tricks on us. They really are just making allocations with `malloc`, resizing allocations with `realloc`, writing data to allocated areas, and then calling the `win` function if a heap block we can't seem to control contains the string `Ez W` (called with option "[4] Retrieve Flag").
 
 There *are* two things you need to know from the decompilation though...
 
 1. The "Edit Allocation" option uses `gets`, so we can overflow our heap buffers 
 2. The "Retrieve Flag" option calls `malloc(32)`, which is relevant for the condition mentioned above
 
-Excellent! This must be a UAF challenge! This means we will have to do something like `allocate`, then `realloc` and try to trick the heap manager into using different memory instead of just extending th memory. 
+Excellent! This must be a UAF challenge! This means we will have to do something like `allocate`, then `realloc` and try to trick the heap manager into using different memory instead of just extending the same memory region. 
 
 Per the `realloc` man pages: 
 
@@ -99,7 +99,7 @@ So, we can use `gef` to do some heap analysis and some rudimentary inspection (w
 
 1. Can we use `realloc` to actually "move" to a new memory region instead of just expanding or shrinking the same region?
 2. If we do "move" to new memory, can we reuse the old memory deterministically? 
-3. Can we either control the data in that region after it is "moved" away from or confirm that the data we entered there is not altered after we "move"
+3. Can we either control the data in that region after it is "moved" away from or confirm that the data we entered there is not altered after we "move"?
 
 We can easily disprove the second part of number 3, because we fairly trivially proved number 1! We can indeed move to a new memory region if we just put the memory in a small enough hole that it can't expand without moving! 
 
