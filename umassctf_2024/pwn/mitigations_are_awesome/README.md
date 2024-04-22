@@ -18,7 +18,7 @@ We are given two files:
 
 We get the source code and the binaries, which is great. 
 
-Checksec show:
+Checksec shows:
 
 ```
 [*] '/root/workbench/umassctf_2024/pwn/mitigations_are_awesome/chall'
@@ -62,12 +62,12 @@ If we run the challenge, we see the following:
  > What action do you want to take?
 ```
 
-I won't even show any decompilation in this writeup because the functions behind these menu items aren't playing any tricks on us. They really are just making allocations with `malloc`, resizing allocations with `realloc`, writing data to allocated areas, and then calling the `win` function (called with option "4" of "Retrieve Flag").
+I won't even show any decompilation in this writeup because the functions behind these menu items aren't playing any tricks on us. They really are just making allocations with `malloc`, resizing allocations with `realloc`, writing data to allocated areas, and then calling the `win` function if the a heap block contains the string s`Ez W` (called with option "4" of "Retrieve Flag").
 
-There are two things you need to know from the decompilation though...
+There *are* two things you need to know from the decompilation though...
 
 1. The "Edit Allocation" option uses `gets`, so we can overflow our heap buffers 
-2. The "Retrieve Flag" option calls `malloc(32)` and if the allocated memory contains a single string of "Ez W", we call the `win` function
+2. The "Retrieve Flag" option calls `malloc(32)`, which is relevant for the condition mentioned above
 
 Excellent! This must be a UAF challenge! This means we will have to do something like `allocate`, then `realloc` and try to trick the heap manager into using different memory instead of just extending th memory. 
 
@@ -87,19 +87,19 @@ Per the `realloc` man pages:
   earlier call to malloc(),  calloc(),  or  realloc().   If  the  area
   pointed to was moved, a free(ptr) is done.
 ```
-So, it doesn't anything about what causes the memory region to be `freed`. But, we do see that we can `free` a region by entering a new size of `0`. However, I tried that, and the code blocks us from entering a size of `0` when we want to allocate or reallocate memory. 
+So, it doesn't mention anything about what causes the memory region to be `freed`. But, we do see that we can `free` a region by entering a new size of `0`. However, I tried that, and the code blocks us from using `0` when we want to allocate or reallocate memory. 
 
 ## What Else To Try? 
 
-I did a heap spray... That is the `input.txt` and `gdb.script` files are doing in this repo, but don't bother using them... This didn't work, and it was a bad idea. 
+I did a heap spray... That is what the `input.txt` and `gdb.script` files are doing in this repo, but don't bother using them... This didn't work, and it was a bad idea. 
 
 ## So, How Do We Actually Solve?
 
 So, we can use `gef` to do some heap analysis and some rudimentary inspection (which is all we need). All we care about is:
 
-1. Can we use `realloc` to actually "move" to a new memory region instead of just expanding or shrinking the same region 
-2. If we do "move" to new memory, can we reuse the old value? 
-3. Can we either control the data in that region after it is "moved" away from or that the data we entered there is not altered after we "move"
+1. Can we use `realloc` to actually "move" to a new memory region instead of just expanding or shrinking the same region?
+2. If we do "move" to new memory, can we reuse the old memory deterministically? 
+3. Can we either control the data in that region after it is "moved" away from or confirm that the data we entered there is not altered after we "move"
 
 We can easily disprove the second part of number 3, because we fairly trivially proved number 1! We can indeed move to a new memory region if we just put the memory in a small enough hole that it can't expand without moving! 
 
@@ -128,20 +128,20 @@ Previous chunk size: 0 (0x0)
 PREV_INUSE | IS_MMAPPED | NON_MAIN_ARENA
 ```
 
-So, in reverse order, the last allocation is at 0x10717f0, the one before is at 0x10717c0, and the earliest is at 0x10717a0. Some basic math shows these allocations 1 and 2 are 32 bytes apart and 2 and 3 are 48 bytes apart. In text, this looks something like this:
+So, in reverse order, the last allocation is at 0x10717f0, the one before is at 0x10717c0, and the earliest is at 0x10717a0. Some basic math shows the allocations 1 and 2 are 32 bytes apart and 2 and 3 are 48 bytes apart. In text, this looks something like this:
 
 ```
   32 bytes    48 bytes        1040 bytes
 |-----------|---------------|-----------------------------------|
 ```
 
-The reason I created such a small allocation first was to demonstrate that the heap only allocates in certain size chunks at a time. In this case, it is 32 bytes that is the smallest amount we can allocate. But, it isn't actually 32 bytes of *data*. The chunk in its entirety is 32 bytes. There are 8 bytes of metadata in the chunk that isn't the `data` portion of the chunk. So, you notice I allocated 32 bytes in the second allocation, but the chunk is 48 bytes? This is why! 
+The reason I created such a small allocation first (I only asked for 4 bytes) was to demonstrate that the heap only allocates in certain size chunks at a time. In this case, it is 32 bytes that is the smallest amount we can allocate. But, it isn't actually 32 bytes of *data*. The chunk in its entirety is 32 bytes. There are 8 bytes of metadata in the chunk that isn't the `data` portion of the chunk. So, you notice I allocated 32 bytes in the second allocation, but the chunk is 48 bytes? This is why (well, that and because the heap manager rounded up the data allocated to 40 bytes instead of 32)! 
 
 This matters because the value we need to be free is one large enough to hold 32 bytes of *data* (since the check to send us to `win` requests a 32 byte large memory region for data). The minimum amount we need is 48 bytes. So, how do we make those 48 bytes there free? 
 
 Let's try a `realloc`! 
 
-If we `realloc` the second region (index "1") to `1024` bytes (other values will work, so long as it is larger than 48 bytes). This does, in fact, move our new region to 0x1071800, which is very far from where we were before. So, now, the heap looks like this:
+If we `realloc` the second region (index "1") to `1024` bytes (other values will work, so long as it is larger than 48 bytes) we do, in fact, move our new region to 0x1071800, which is very far from where we were before. So, now, the heap looks like this:
 
 ```
   32 bytes    48 free bytes   1040 bytes
@@ -157,22 +157,24 @@ The final stage of this solve was to use the `gets` overflow we talked about ear
 
 We mentioned that our data in the prior-to-`realloc` region is overwritten after the move. But, we *can* write to it afterwards prior to getting the heap allocator to give it back to us! 
 
-Let's walk through what are doing so far: 
+Let's walk through what we are doing so far: 
 
 1. Allocate 4 bytes (or whatever)
 2. Allocate 32 bytes 
 3. Allocate 1024 bytes (also doesn't really matter)
 4. Re-alloc the 32-byte chunk to 1024 bytes 
 
-We now have our heap "hole" which will be picked up the next time the allocator needs a 32 byte region of memory.
+We now have our 48 byte "hole" which will be picked up the next time the allocator is asked for 32 bytes.
 
-To do this, we now have overflow 36 bytes to the first 4 byte region. Remember, there are 8 bytes of metadata in the chunk and the smallest size of a region we could allocate was 32 bytes. This means there are 24 bytes of `data` available. 
+If we want to write into that "hole" after it has been freed for us after `realloc`, we have to write 36 bytes to the *first* memory region (which is why we had to allocate an arbitrary region before our "hole" instead of the first region being the "hole").
 
-So, why do we overflow 36 bytes? Because we overwrite the 24 bytes of data in our region, the 8 bytes of metadata in the next usable chunk, and then we write 4 bytes into the `data` region of the next chunk! 
+Remember, there are 8 bytes of metadata in the chunk and the smallest size of a region we could allocate was 32 bytes. This means there are 24 bytes of `data` available. 
+
+So, why do we want to write 36 bytes? Because we overwrite the 24 bytes of data in our region, the 8 bytes of metadata in the next usable chunk, and then we write 4 bytes into the `data` region of the next chunk! 
 
 So, we continue our alrogithm: 
 
-5. Edit chunk at index 0 and write 36 bytes: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEz W
+5. Edit chunk at index 0 and write 36 bytes, such as: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEz W"
 6. Call the "Retrieve Flag" option
 7. `malloc(32)` is made and uses the chunk with a data section reading `Ez W`
 
@@ -180,6 +182,6 @@ UMASS{$0m3on3!_g37z_4ng$ty_wh3n_ptr4c3_w0rkz!!!}
 
 # Conclusion 
 
-You can see that the flag indicates I should've cared about `ptrace`. THe `wrapper` source code indicated this too... But, like I said before, I just ignored `wrapper` (and `ptrace` for that matter). 
+You can see that the flag indicates I should've cared about `ptrace`. The `wrapper` source code indicated this too... But, like I said before, I just ignored `wrapper` (and `ptrace`, for that matter). 
 
 This could be an artifact of the original challenge going wrong? Either way, it was a fun challenge, just not sure what `wrapper` was for and why `ptrace` was mentioned...
