@@ -1,0 +1,3 @@
+starti 
+b *0x401c23
+r < input.txt

@@ -1,0 +1,12 @@
+1. allocate 64 bytes 0xbb17a0
+2. allocate 32 bytes 0xbb17f0
+3. allocate 1024 bytes 0xbb1820
+4. Resize alloc from "2" --> 0xbb1c30
+
+4    0x8157a0
+32   0x8157c0 -> 0x815c00 of 1024
+1024 0x8157f0
+
+edit struct 1 for 36 bytes. 32 As and Ez W
+
+

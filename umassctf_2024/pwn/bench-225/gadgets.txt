@@ -1,0 +1,22 @@
+Gadgets information
+============================================================
+0x00000000000015c7 : add al, ch ; ret
+0x0000000000001017 : add esp, 8 ; ret
+0x0000000000001016 : add rsp, 8 ; ret
+0x0000000000001014 : call rax
+0x0000000000001314 : dec ecx ; ret
+0x000000000000120f : jmp rax
+0x0000000000001341 : mov rdi, rax ; ret
+0x0000000000001332 : pop rax ; ret
+0x0000000000001293 : pop rbp ; ret
+0x0000000000001334 : pop rbx ; ret
+0x000000000000133c : pop rcx ; ret
+0x0000000000001336 : pop rdi ; ret
+0x0000000000001338 : pop rdx ; ret
+0x000000000000133a : pop rsi ; ret
+0x000000000000101a : ret
+0x0000000000002020 : sub rsp, 8 ; add rsp, 8 ; ret
+0x000000000000133e : syscall
+0x0000000000001330 : xor eax, eax ; pop rax ; ret
+
+Unique gadgets found: 147
