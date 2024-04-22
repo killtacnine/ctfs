@@ -30,23 +30,25 @@ Yikes... We have everything...
 
 The new option in the game takes us to a function named `motivation`
 
-This function holds all of the vulnerabilities we could possible want! 
+This function holds all of the vulnerabilities we could possibly want! 
 
 ![vulnerable function](./media/the_vulns.png)
 
 We have a buffer of 8 bytes that we can write 1000 bytes into, so that's a BOF... We have a `printf` call with no format arguments, so that's a leak!
 
-Since canaries are enabled, we probably want the stack cookie, and if we get that we can ROP, so we definitely want an address leak. 
+Since canaries are enabled, we probably want the stack cookie, because if we get that then we can ROP!
 
 The `motivation` function just lets us enter those 1000 bytes previously mentioned, but we don't want to stack overflow while gathering our leaks!
 
-Using `telescope` in `gef` after we break point at the `fgets` call, we can start using some format bugs to leak. If we do '%9$p' we get the cookie. If we do '%17$p' we get the address of `main`.
+Using `telescope` in `gef` after we break point at the `fgets` call, we can start using some format bugs to leak data. If we enter '%9$p' we get the cookie!
 
 ## ROP Funz 
 
-Since we can use ROP, let's check if there are any useful functions or one-gadgets we might've missed. No one-gadgets, but there is a function that is not called from anywhere named `the_boats`. Decompiling this reveals a ton of useful ROP gadgets: 
+Since we can use ROP, let's check if there are any useful functions or one-gadgets we might've missed... No one-gadgets, but there is a function that is not called from anywhere named `the_boats`. Decompiling this reveals a ton of useful ROP gadgets: 
 
-1[gadgets](./media/gadgets.png)
+![gadgets](./media/gadgets.png)
+
+So, if we can get the address of `the_boats`, we can use these gadgets... but, how do we do that? Well, checking the stack again, we see we can grab the address of `main` if we enter a format string bug of `%17$p`!
 
 So, let's calulate the offset of `main` and `the_boats` since we have a leak of the base address of `main` (because PIE is enabled, these values are just from my run and won't match yours):
 
