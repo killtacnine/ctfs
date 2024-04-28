@@ -43,3 +43,5 @@ The solution is available for your review, but here's an `asciinema` clip of it 
 ![the juice](./media/travel_the_dunes.gif)
 
 If you run the solver yourself, you will notice that several "junk" files are left in the directory from which you ran the solver. Can you find the bug in my code?
+
+UMDCTF{rvgxbvhm89tc83oc3t84mo90m83dt4m_____s3R10Us1Y_whO_@ctu@11y_usEs_0c@m1???_____al7of37d3otdxlsdt8nysfln8y43fsg7xuvnsf}
