@@ -49,10 +49,10 @@ Spoilers: we *can* solve the equation and it does not crash the code. The value 
 
 I hit a problem I have hit before so frequently that you would think I would have learned better... 
 
-I jumped the the *start* of the address of the `give_flag` function which uses the basic function preamble to preserve and set the local stack. 
+I jumped to the the *start* of the address of the `give_flag` function which uses the basic function preamble to preserve and set the local stack. 
 
 This is a major problem because we are corrupting the stack... In fact, we are corrupting the stack so brutally that `malloc` was broken (which is called from within `fopen` in `give_flag`).
 
-The way to get around this is to *totally control the stack* by jumping just pass the function preamble! We just has to change our rop from the start of `give_flag to 0x4011fb (a few bytes past the start).
+The way to get around this is to *totally control the stack* by jumping just pass the function preamble! We just had to change our rop from the start of `give_flag` to 0x4011fb (a few bytes past the start).
 
 UMDCTF{pwn_g3ss3r1t_sk1ll5_d0nt_tak3_a5_many_y3ar5_t0_l3arn_pau1}
